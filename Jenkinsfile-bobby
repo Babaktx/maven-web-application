@@ -1,0 +1,35 @@
+node{
+    def mavenHome = tool name: 'maven3.9.4'
+    stage('1.CloneCode'){
+        git "https://github.com/Babaktx/maven-web-application.git"
+    }
+    stage('2.mvnBuild'){
+        sh "${mavenHome}/bin/mvn clean package"
+    }
+    stage('3.CodeQuality'){
+        sh "${mavenHome}/bin/mvn sonar:sonar" 
+    }
+    stage('4.UploadArtifacts'){
+        sh "${mavenHome}/bin/mvn deploy"
+    }
+    stage('5.Deploy2UAT'){
+        deploy adapters: [tomcat9(credentialsId: 'tomcat-credentials', path: '', url: 'http://54.209.32.63:8177')], contextPath: null, war: 'target/*war'
+    }
+    stage('6.ManualApproval'){
+        timeout(time:600, unit:'MINUTES'){
+            input message: 'Applictaion ready for deployment, PLease review and approve'
+        }
+        stage('7.Deploy2Prod'){
+            sh "echo 'Deploy the application to production' "
+            deploy adapters: [tomcat9(credentialsId: 'tomcat-credentials', path: '', url: 'http://54.209.32.63:8177')], contextPath: null, war: 'target/*war'
+        }
+        stage('8.Email'){
+            emailext body: '''Hi Team,
+The build and Deployment. status for pipeline-app follows.
+
+regards,
+Babak Mansouri''', recipientProviders: [buildUser(), developers(), requestor()], subject: 'build status', to: 'baabackman@yahoo.com'
+        }
+    }
+    
+}
